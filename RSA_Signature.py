@@ -1,5 +1,3 @@
-# This program uses the pycrypt library version 2.6.1 (http://www.pycrypto.org/)
-# available by running the installation command: "pip install pycrypt".
 # install "python-pip" prior to running this command.
 
 from Crypto.PublicKey import RSA
@@ -75,10 +73,7 @@ class transaction_data:
 # capability to verify internal consistency.
 class Block_medical:
     # the constructor sets all fields according to arguments provided
-    # num       = the index of the block
-    # miner_key = the private key of the miner creating the block
-    # trans     = the transaction fields for the block
-    # prev_hash = the "bhash" of the preceding block
+    
     def __init__(self, num, miner_key, trans, prev_hash):
         self.err = "" 
         self.errnum = 0  # additional data to be passed with error
@@ -86,8 +81,8 @@ class Block_medical:
 
         # if num is zero, this is the genesis block
         if (num == 0):
-            self.bhash = SHA256.new(0).hexdigest()
-            prev_hash = self.bhash
+            self.blockhash = SHA256.new(0).hexdigest()
+            prev_hash = self.blockhash
             # creating a hash of fields 6-8, for genesis block 6 & 7 are zeroes
             block_hash = SHA256.new(prev_hash)
         else:
@@ -97,11 +92,11 @@ class Block_medical:
                     + trans.psign + trans.msign + str(num)
             # the hash created from these concatenated fields will be used to link the
             # blocks together
-            self.bhash = SHA256.new(bdata).hexdigest()
+            self.blockhash = SHA256.new(bdata).hexdigest()
             # creating a hash of fields 6-8
             block_hash = SHA256.new(trans.msign + str(num) + prev_hash)
 
-        # for every block except the genesis block, this is the previous block's bhash
+        # for every block except the genesis block, this is the previous block's hash
         self.phash = prev_hash  # FIELD #8
         # creating a signed copy to be stored in the chain
         self.msig = PKCS1_v1_5.new(miner_key).sign(block_hash)  # FIELD #9
@@ -131,7 +126,7 @@ class Block_medical:
                     + self.ktransaction.msign + str(self.seq)
             # calculate the hash to compare against the recorded hash in earlier steps
             test_hash = SHA256.new(bdata).hexdigest()
-            if (test_hash != self.bhash):
+            if (test_hash != self.blockhash):
                 self.err = "Inconsistent hash for block and data"
                 self.errnum = self.seq
                 return False
@@ -161,7 +156,7 @@ class Blockchain:
     def add(self, trans, miner_key):
         self.err = ""
         self.seq += 1
-        self.blocks.append(Block_medical(self.seq, miner_key, trans, self.blocks[self.seq - 1].bhash))
+        self.blocks.append(Block_medical(self.seq, miner_key, trans, self.blocks[self.seq - 1].blockhash))
 
     # verifies the integrity of the chain and triggers verification checks at every
     # subordinate level (block and then transaction levels) by cascading verification checks
@@ -174,7 +169,7 @@ class Blockchain:
                     self.errnum = 0
                     return False
             else:
-                if (self.blocks[i].phash != self.blocks[i - 1].bhash):
+                if (self.blocks[i].phash != self.blocks[i - 1].blockhash):
                     self.err = "Inconsistent hash between blocks (" + str(i) + "/" + str(i - 1) + ")"
                     self.errnum = i
                     return False
@@ -213,7 +208,7 @@ print ("Generating miner key..."),
 miner_key  = RSA.generate(2048)
 print ("Success.")
 
-print ("Generating sample transactions:")
+print ("Generating sample transactions with random keys:")
 # Generating 5000 sample transactions
 transactions = []
 for i in range(5000):
