@@ -1,19 +1,19 @@
 # This program uses the pycrypt library version 2.6.1 (http://www.pycrypto.org/)
-# available by running the installation command: "pip install pycrypt".  You may
-# have to install "python-pip" prior to running this command.
+# available by running the installation command: "pip install pycrypt".
+# install "python-pip" prior to running this command.
 
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 from Crypto.Hash import SHA256
-from random import *
+#from random import *
 
 
 # The "transaction_data" class holds the transaction data and calculates the signatures for
 # each transaction.
 class transaction_data:
-    # the constructor sets up the transaction data and signs the transaction
+    # this constructor sets up the transaction data and signs the transaction
     def __init__(self, patient_key, medical_key, date, amount):
-        self.err = ""  # explanatory variable in case an error is generated
+        self.err = ""  # error generation variable
 
         patient_priv_key = patient_key
         patient_pub_key = patient_key.publickey()
@@ -31,14 +31,14 @@ class transaction_data:
         data_hash = SHA256.new(data)
         # encrypting the hash with the patient's private key to sign the transaction
         self.psign = PKCS1_v1_5.new(patient_priv_key).sign(data_hash)  # FIELD #5
-        # concatenating the data and the customer signature field
+        # concatenating the data and the patient signature field
         d_plus_psign = data + self.psign
-        # hashing the concatenated data
+        # hashing the concatenated data 
         dppsign_hash = SHA256.new(d_plus_psign)
         # encrypting the hash with the medical authority's private key to sign the transaction
         self.msign = PKCS1_v1_5.new(medical_priv_key).sign(dppsign_hash)  # FIELD #6
 
-    # the verify function simply checks the data integrity of a single transaction
+    # the verify function authenticates the data integrity of a single transaction in the block
     def verify_transaction(self):
         self.err = ""
         patient_pub_key = RSA.importKey(self.ppubkey)
@@ -52,6 +52,7 @@ class transaction_data:
         if PKCS1_v1_5.new(patient_pub_key).verify(data_hash, self.psign):
             d_plus_psign = data + self.psign
             dppsign_hash = SHA256.new(d_plus_psign)
+	    #verification of RSA signatures using PKCS1
             if PKCS1_v1_5.new(medical_pub_key).verify(dppsign_hash, self.msign):
                 return True
             else:
@@ -60,7 +61,7 @@ class transaction_data:
         else:
             self.err = "Signature Verification against patient's data has failed for the transaction"
             return False
-
+#Verifying the validity of transaction data
     def show_transaction(self):
         if self.verify():
             validity = "valid"
@@ -79,9 +80,9 @@ class Block_medical:
     # trans     = the transaction fields for the block
     # prev_hash = the "bhash" of the preceding block
     def __init__(self, num, miner_key, trans, prev_hash):
-        self.err = ""  # explanatory variable in case an error is generated
+        self.err = "" 
         self.errnum = 0  # additional data to be passed with error
-        self.seq = num  # assign a sequence number (FIELD #7)
+        self.seq = num  # assigns a sequence number to each block (FIELD #7)
 
         # if num is zero, this is the genesis block
         if (num == 0):
@@ -90,7 +91,7 @@ class Block_medical:
             # creating a hash of fields 6-8, for genesis block 6 & 7 are zeroes
             block_hash = SHA256.new(prev_hash)
         else:
-            self.btrans = trans  # transfer the data from the transaction to this block
+            self.ktransaction = trans  # transfer the data from the transaction to this block
             # concatenate all block data into a single string
             bdata = trans.ppubkey + trans.mpubkey + trans.date + "{:.2f}".format(trans.amount) \
                     + trans.psign + trans.msign + str(num)
@@ -106,7 +107,7 @@ class Block_medical:
         self.msig = PKCS1_v1_5.new(miner_key).sign(block_hash)  # FIELD #9
         self.minerpubkey = miner_key.publickey().exportKey("PEM")
 
-    # verifies all block signatures
+    # Verification of all RSA block signatures
     def verify(self):
         self.err = ""
         mpub = RSA.importKey(self.minerpubkey)
@@ -119,25 +120,26 @@ class Block_medical:
                 self.errnum = 0
                 return False
         else:
-            # verifying that the customer and merchant signatures check out
-            if (not self.btrans.verify()):
+            # verifying that the patient and authority signatures are valid
+            if (not self.ktransaction.verify()):
                 self.err = "Transaction Verification failure against patient and medical authority's public keys"
                 self.errnum = self.seq
                 return False
             # concatenate all block data into a single string
-            bdata = self.btrans.ppubkey + self.btrans.mpubkey + self.btrans.date \
-                    + "{:.2f}".format(self.btrans.amount) + self.btrans.csign \
-                    + self.btrans.msign + str(self.seq)
-            # calculate the hash to compare against the recorded hash
+            bdata = self.ktrans.ppubkey + self.ktransaction.mpubkey + self.ktransaction.date \
+                    + "{:.2f}".format(self.ktransaction.amount) + self.ktransaction.csign \
+                    + self.ktransaction.msign + str(self.seq)
+            # calculate the hash to compare against the recorded hash in earlier steps
             test_hash = SHA256.new(bdata).hexdigest()
             if (test_hash != self.bhash):
                 self.err = "Inconsistent hash for block and data"
                 self.errnum = self.seq
                 return False
             # creating a hash of fields to test against the signature
-            block_hash = SHA256.new(self.btrans.msign + str(self.seq) + self.phash)
+            block_hash = SHA256.new(self.ktransaction.msign + str(self.seq) + self.phash)
             # test the signature to ensure the integrity of the recorded hash
             if (not PKCS1_v1_5.new(mpub).verify(block_hash, self.msig)):
+	    	#Identification of failure point in the blockchain
                 self.err = "Signature verification failed for block #" + str(self.seq)
                 self.errnum = self.seq
                 return False
@@ -148,15 +150,14 @@ class Block_medical:
 class Blockchain:
     # the constructor creates the genesis block and signs it with a miner's private key
     def __init__(self, miner_key):
-        self.err = ""  # explanatory variable in case an error is generated
-        self.errnum = 0  # additional data to be passed with error
-        self.seq = 0  # the constantly incrementing sequence number
+        self.err = ""  
+        self.errnum = 0  
+        self.seq = 0  
         self.blocks = []  # the list of blocks in the chain
         # appending the genesis block
         self.blocks.append(Block_medical(0, miner_key, 0, 0))
 
-    # adds a transaction block to the chain and includes the hash of the previous block's
-    # data to ensure that the data is truly linked like a chain
+    # adds a transaction block to the chain and includes the hash of the previous block's data to ensure that the data is linked similar to a blockchain
     def add(self, trans, miner_key):
         self.err = ""
         self.seq += 1
@@ -183,37 +184,34 @@ class Blockchain:
                     return False
         return True
 	def summary_transaction(self, ppub, mpub):
-		print ("S.No.  Patient Public Key  Medical Authority Public Key  Transaction   Transaction")
-		print ("          Excerpt              Excerpt                   Date         Amount  ")
-		print ("===  ===================  ===================          ============  ===========")
+		print ("S.No.  Patient Public Key  Medical Authority Public Key  Transaction Date  Transaction Amount")
+		
 		for i in range(1,self.seq+1):
-			if (((ppub == 0) and (mpub == 0)) or                             \
-				((ppub == self.blocks[i].btrans.cpubkey) and (mpub == 0)) or \
-				((mpub == self.blocks[i].btrans.mpubkey) and (ppub == 0)) or \
-				((mpub == self.blocks[i].btrans.mpubkey) and                 \
-				 (ppub == self.blocks[i].btrans.cpubkey))):
+			if (((ppub == 0) and (mpub == 0)) or  ((ppub == self.blocks[i].ktransaction.cpubkey) and (mpub == 0)) or \
+				((mpub == self.blocks[i].ktransaction.mpubkey) and (ppub == 0)) or ((mpub == self.blocks[i].ktransaction.mpubkey) and \
+				 (ppub == self.blocks[i].ktransaction.cpubkey))):
 				print( " " + "{:0>2d}".format(i)),
-				print( "  " + self.blocks[i].btrans.ppubkey[100:117]),
-				print( "   " + self.blocks[i].btrans.mpubkey[100:117]),
-				print( "   " + self.blocks[i].btrans.date),
-				print( "    $" + "{:.2f}".format(self.blocks[i].btrans.amount))
+				print( " " + self.blocks[i].ktransaction.ppubkey[100:117]),
+				print( " " + self.blocks[i].ktransaction.mpubkey[100:117]),
+				print( " " + self.blocks[i].ktransaction.date),
+				print( " $" + "{:.2f}".format(self.blocks[i].ktransaction.amount))
 print ("Generating medical authorities keys..."),
 medical_keys = []
 for i in range(22):
 	print (str(i+1) + " "),
 	medical_keys.append(RSA.generate(2048)) #Add RSA 2048 signature to hospital's keys
-print ("Done.")
+print ("Success.")
 
 print ("Generating patient keys..."),
 patient_keys = []
 for i in range(56):
 	print (str(i+1) + " "),
-	patient_keys.append(RSA.generate(2048)) #Add RSA 2048 signature to patient's keys
-print ("Done.")
+	patient_keys.append(RSA.generate(2048)) #Append RSA 2048 signature to patient's keys
+print ("Success.")
 
 print ("Generating miner key..."),
 miner_key  = RSA.generate(2048)
-print ("Done.")
+print ("Success.")
 
 print ("Generating sample transactions:")
 # Generating 5000 sample transactions
@@ -229,7 +227,7 @@ for i in range(5000):
 	print ("     " + "{:0>2d}".format(i+1) + ": " + "Medical Auth#" + str(medical) + " /"),
 	print ("Patient#" + str(patient) + "  " + date + "  $" + "{:.2f}".format(amount))
 	transactions.append(transaction_data(patient_keys[patient-1], medical_keys[medical-1], date, amount))
-	#print "                          ",
+	#print " "                         ",
 	#transactions[i].show()
 
-print ("Done.")
+print ("Success")
