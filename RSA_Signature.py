@@ -182,3 +182,54 @@ class Blockchain:
                     self.errnum = i
                     return False
         return True
+	def summary_transaction(self, ppub, mpub):
+		print ("S.No.  Patient Public Key  Medical Authority Public Key  Transaction   Transaction")
+		print ("          Excerpt              Excerpt                   Date         Amount  ")
+		print ("===  ===================  ===================          ============  ===========")
+		for i in range(1,self.seq+1):
+			if (((ppub == 0) and (mpub == 0)) or                             \
+				((ppub == self.blocks[i].btrans.cpubkey) and (mpub == 0)) or \
+				((mpub == self.blocks[i].btrans.mpubkey) and (ppub == 0)) or \
+				((mpub == self.blocks[i].btrans.mpubkey) and                 \
+				 (ppub == self.blocks[i].btrans.cpubkey))):
+				print( " " + "{:0>2d}".format(i)),
+				print( "  " + self.blocks[i].btrans.ppubkey[100:117]),
+				print( "   " + self.blocks[i].btrans.mpubkey[100:117]),
+				print( "   " + self.blocks[i].btrans.date),
+				print( "    $" + "{:.2f}".format(self.blocks[i].btrans.amount))
+print ("Generating medical authorities keys..."),
+medical_keys = []
+for i in range(22):
+	print (str(i+1) + " "),
+	medical_keys.append(RSA.generate(2048)) #Add RSA 2048 signature to hospital's keys
+print ("Done.")
+
+print ("Generating patient keys..."),
+patient_keys = []
+for i in range(56):
+	print (str(i+1) + " "),
+	patient_keys.append(RSA.generate(2048)) #Add RSA 2048 signature to patient's keys
+print ("Done.")
+
+print ("Generating miner key..."),
+miner_key  = RSA.generate(2048)
+print ("Done.")
+
+print ("Generating sample transactions:")
+# Generating 5000 sample transactions
+transactions = []
+for i in range(5000):
+	medical = randint(1,8)
+	patient  = randint(2,9)
+	day   = "{:0>2d}".format(randint(1,28))
+	month = "{:0>2d}".format(randint(1,12))
+	year  = "{:0>2d}".format(randint(2001,2022))
+	date  = month + "/" + day + "/" + year
+	amount = uniform(0,5000)
+	print ("     " + "{:0>2d}".format(i+1) + ": " + "Medical Auth#" + str(medical) + " /"),
+	print ("Patient#" + str(patient) + "  " + date + "  $" + "{:.2f}".format(amount))
+	transactions.append(transaction_data(patient_keys[patient-1], medical_keys[medical-1], date, amount))
+	#print "                          ",
+	#transactions[i].show()
+
+print ("Done.")
